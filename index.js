@@ -5,7 +5,7 @@ import cors from "cors";
 import authRoutes from "./routes/authRoutes.js";
 import db from "./lib/db.js";
 import authProfile from "./routes/authProfile.js";
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8000;
 const app = express();
 
 app.use(cors());
