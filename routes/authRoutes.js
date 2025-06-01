@@ -38,6 +38,7 @@ router.post('/register', upload.single('photo'), async (req, res) => {
   const { name, username, password } = req.body;
   let photoUrl = null;
 
+  // Validación de campos obligatorios
   if (!name || !username || !password) {
     return res.status(400).json({ error: 'Por favor, completa todos los campos.' });
   }
@@ -46,26 +47,44 @@ router.post('/register', upload.single('photo'), async (req, res) => {
   }
 
   try {
-    photoUrl = await uploadToCloudinary(req.file.buffer);
-
-    // Verificar si existe usuario con ese nombre
-    const result = await db.query('SELECT * FROM users WHERE name = $1', [name]);
-    if (result.rows.length > 0) {
-      return res.status(400).json({ error: 'Ya existe un usuario con ese nombre' });
+    const userCheck = await db.query('SELECT * FROM users WHERE username = $1', [username]);
+    if (userCheck.rows.length > 0) {
+      return res.status(400).json({ error: 'El nombre de usuario ya está en uso, por favor elige otro.' });
     }
 
+    // Verificar si el nombre ya existe (opcional)
+    const nameCheck = await db.query('SELECT * FROM users WHERE name = $1', [name]);
+    if (nameCheck.rows.length > 0) {
+      return res.status(400).json({ error: 'Ya existe un usuario con ese nombre.' });
+    }
+
+    // Subir foto a Cloudinary
+    photoUrl = await uploadToCloudinary(req.file.buffer);
+
+    // Hash de la contraseña
     const hashPassword = await bcrypt.hash(password, 10);
 
+    // Registrar el nuevo usuario
     await db.query(
       'INSERT INTO users (name, username, password, photo) VALUES ($1, $2, $3, $4)',
       [name, username, hashPassword, photoUrl]
     );
 
-    res.json({ name, username, photo: photoUrl });
+    res.status(201).json({ 
+      success: true,
+      message: 'Usuario registrado exitosamente',
+      user: { name, username, photo: photoUrl }
+    });
 
   } catch (err) {
     console.error('Error en /register:', err);
-    res.status(500).json({ error: 'Error en el registro' });
+    
+    // Manejo específico para errores de Cloudinary
+    if (err.message.includes('Cloudinary')) {
+      return res.status(500).json({ error: 'Error al subir la imagen de perfil' });
+    }
+    
+    res.status(500).json({ error: 'Error en el proceso de registro' });
   }
 });
 

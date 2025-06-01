@@ -114,14 +114,28 @@ router.put("/profile/update", upload.single("photo"), async (req, res) => {
 
 router.delete("/profile/delete", async (req, res) => {
   const { username } = req.query;
-  if (!username) return res.status(400).json({ error: "Falta el username" });
+
+  if (!username) {
+    return res.status(400).json({ error: "Falta el username" });
+  }
 
   try {
+    // Primero verifica si el usuario existe
+    const userCheck = await db.query("SELECT id FROM users WHERE username = $1", [username]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    // Elimina al usuario
     await db.query("DELETE FROM users WHERE username = $1", [username]);
-    res.json({ success: true });
+
+    res.json({ success: true, message: "Usuario eliminado correctamente" });
   } catch (err) {
-    return res.status(500).json({ error: "Error al eliminar cuenta" });
+    console.error("Error al eliminar usuario:", err);
+    return res.status(500).json({ error: "Error al eliminar el usuario en la base de datos" });
   }
 });
+
+
 
 export default router;
