@@ -1,7 +1,6 @@
 import express from "express";
-import db from "../lib/db.js";
+import db from "../lib/db.js"; // db debe exportar un Pool de pg
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
@@ -11,51 +10,55 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 dotenv.config();
 
-router.get("/profile", (req, res) => {
+router.get("/profile", async (req, res) => {
   const { username } = req.query;
   if (!username) {
     return res.status(400).json({ error: "Falta el username" });
   }
 
-  db.query(
-    "SELECT name, username, photo FROM users WHERE username = ?",
-    [username],
-    (err, results) => {
-      if (err) return res.status(500).json({ error: "Error en la base de datos" });
-      if (results.length === 0) return res.status(404).json({ error: "Usuario no encontrado" });
-      res.json(results[0]);
+  try {
+    const result = await db.query(
+      "SELECT name, username, photo FROM users WHERE username = $1",
+      [username]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
     }
-  );
+    res.json(result.rows[0]);
+  } catch (err) {
+    return res.status(500).json({ error: "Error en la base de datos" });
+  }
 });
-router.post("/profile/verify-password", (req, res) => {
+
+router.post("/profile/verify-password", async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: "Faltan datos" });
 
-  db.query("SELECT password FROM users WHERE username = ?", [username], async (err, results) => {
-    if (err || results.length === 0) return res.status(401).json({ error: "Usuario no encontrado" });
-    const match = await bcrypt.compare(password, results[0].password);
-    if (match) {
-      res.json({ success: true });
-    } else {
-      res.json({ success: false });
-    }
-  });
+  try {
+    const result = await db.query("SELECT password FROM users WHERE username = $1", [username]);
+    if (result.rows.length === 0) return res.status(401).json({ error: "Usuario no encontrado" });
+
+    const match = await bcrypt.compare(password, result.rows[0].password);
+    res.json({ success: match });
+  } catch (err) {
+    return res.status(500).json({ error: "Error en la base de datos" });
+  }
 });
 
-const uploadToCloudinary= (fileBuffer) =>{
-    return new Promise ((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-            {folder:"sistemaesc_perfiles"},
-            (error,result) => {
-                if(result){
-                    resolve(result.secure_url)
-                }else{
-                    reject(error)
-                }
-            }
-        )
-        streamifier.createReadStream(fileBuffer).pipe(stream)
-    })
+const uploadToCloudinary = (fileBuffer) => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: "sistemaesc_perfiles" },
+      (error, result) => {
+        if (result) {
+          resolve(result.secure_url);
+        } else {
+          reject(error);
+        }
+      }
+    );
+    streamifier.createReadStream(fileBuffer).pipe(stream);
+  });
 };
 
 router.put("/profile/update", upload.single("photo"), async (req, res) => {
@@ -65,7 +68,6 @@ router.put("/profile/update", upload.single("photo"), async (req, res) => {
 
   if (!name || !username) return res.status(400).json({ error: "Faltan datos" });
 
-  // Si hay nueva foto, súbela a Cloudinary
   if (req.file) {
     try {
       photoUrl = await uploadToCloudinary(req.file.buffer);
@@ -74,47 +76,52 @@ router.put("/profile/update", upload.single("photo"), async (req, res) => {
     }
   }
 
-  let updateFields = { name, username };
+  const updateFields = { name, username };
   if (photoUrl) updateFields.photo = photoUrl;
   if (password) updateFields.password = await bcrypt.hash(password, 10);
-  let sql = "UPDATE users SET ";
-  const params = []; //guarda los valores que se pasan a la consulta sql
-  
-  Object.keys(updateFields).forEach((key, idx) => { //obtiene arreglo con nombres de las propiedades
-// Si no es el último campo, agrega una coma
-    sql += `${key} = ?${idx < Object.keys(updateFields).length - 1 ? "," : ""} `; 
+
+  // Construir query dinámico para PostgreSQL
+  const setClauses = [];
+  const params = [];
+  let i = 1;
+  for (const key in updateFields) {
+    setClauses.push(`${key} = $${i}`);
     params.push(updateFields[key]);
-  });
+    i++;
+  }
 
-  // Por cada campo a actualizar, agrega 'campo = ?' a la consulta SQL y su valor al arreglo de parámetros.
-  sql += "WHERE username = ?";
-  params.push(usernameLS);
+  params.push(usernameLS); // Para WHERE
 
-  db.query(sql, params, (err) => {
-    if (err) return res.status(500).json({ error: "Error al actualizar" });
+  const sql = `UPDATE users SET ${setClauses.join(", ")} WHERE username = $${i}`;
 
-    // Devuelve los nuevos datos
-    db.query(
-      "SELECT name, username, photo FROM users WHERE username = ?",
-      [username],
-      (err, results) => {
-        if (err || results.length === 0) return res.status(500).json({ error: "Error al obtener datos" });
-        res.json(results[0]); //devuelve datos si fue exitosa
-      }
+  try {
+    const result = await db.query(sql, params);
+
+    // Traer datos actualizados
+    const updated = await db.query(
+      "SELECT name, username, photo FROM users WHERE username = $1",
+      [username]
     );
-  });
+
+    if (updated.rows.length === 0) {
+      return res.status(404).json({ error: "Usuario no encontrado tras actualizar" });
+    }
+    res.json(updated.rows[0]);
+  } catch (err) {
+    return res.status(500).json({ error: "Error al actualizar" });
+  }
 });
-router.delete("/profile/delete", (req, res) => {
+
+router.delete("/profile/delete", async (req, res) => {
   const { username } = req.query;
   if (!username) return res.status(400).json({ error: "Falta el username" });
 
-  db.query("DELETE FROM users WHERE username = ?", [username], (err) => {
-    if (err) return res.status(500).json({ error: "Error al eliminar cuenta" });
+  try {
+    await db.query("DELETE FROM users WHERE username = $1", [username]);
     res.json({ success: true });
-  });
+  } catch (err) {
+    return res.status(500).json({ error: "Error al eliminar cuenta" });
+  }
 });
-
-
-
 
 export default router;
