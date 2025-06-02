@@ -126,6 +126,7 @@ function convertirFecha(fechaOriginal) {
 }
 
 router.post('/uploadAsistencias', async (req, res) => {
+    const { registros, nombreArchivo } = req.body; 
   const encabezadoIdx = req.body.registros.findIndex(r =>
     Object.values(r).some(v =>
       typeof v === "string" &&
@@ -160,21 +161,22 @@ router.post('/uploadAsistencias', async (req, res) => {
   // Construir query para inserción masiva
   // Ejemplo: INSERT INTO asistencias (cve_empleado, nombre, fecha_hora, observaciones) VALUES
   // ($1, $2, $3, $4), ($5, $6, $7, $8), ...
-  const values = [];
+   const values = [];
   const placeholders = datos.map((r, i) => {
-    const idx = i * 4;
+    const idx = i * 5; // Ahora son 5 campos por registro
     values.push(
       r["CVE DE EMPLEADO"],
       r["Nombre"],
       convertirFecha(r["Fecha / Hora"]),
-      r["OBSERVACIONES"] || null
+      r["OBSERVACIONES"] || null,
+      nombreArchivo // Añade el nombre del archivo
     );
-    return `($${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4})`;
+    return `($${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5})`;
   }).join(',');
 
   try {
     await db.query(
-      `INSERT INTO asistencias (cve_empleado, nombre, fecha_hora, observaciones) VALUES ${placeholders}`,
+      `INSERT INTO asistencias (cve_empleado, nombre, fecha_hora, observaciones, archivo) VALUES ${placeholders}`,
       values
     );
     res.json({ success: true, cantidad: datos.length });
@@ -224,5 +226,25 @@ function convertirFechaBD(fechaBD) {
   const fechaMoment = moment(fechaBD);
   return fechaMoment.format('YYYY-MM-DD HH:mm:ss');
 }
+
+router.get('/asistencias/por-archivo/:nombreArchivo', async (req, res) => {
+  try {
+    const { nombreArchivo } = req.params;
+    const result = await db.query(
+      'SELECT * FROM asistencias WHERE archivo = $1',
+      [nombreArchivo]
+    );
+    
+    const datosFormateados = result.rows.map(row => ({
+      ...row,
+      fecha_hora_formateada: convertirFechaBD(row.fecha_hora),
+    }));
+    
+    res.json(datosFormateados);
+  } catch (err) {
+    console.error('Error en /asistencias/por-archivo:', err);
+    res.status(500).json({ error: 'Error al obtener registros' });
+  }
+});
 
 export default router;
