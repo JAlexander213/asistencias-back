@@ -6,7 +6,7 @@ import streamifier from "streamifier";
 import dotenv from "dotenv";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import db from "../lib/db.js";  // pool de pg
+import db from "../lib/db.js"; 
 import moment from "moment-timezone";
 
 moment.tz.setDefault('America/Mexico_City');
@@ -246,5 +246,17 @@ router.get('/asistencias/por-archivo/:nombreArchivo', async (req, res) => {
     res.status(500).json({ error: 'Error al obtener registros' });
   }
 });
+
+router.get('/archivos', async (req, res) => {
+  try {
+    const { rows } = await db.query('SELECT DISTINCT archivo FROM asistencias');
+    const archivos = rows.map(r => r.archivo);
+    res.json(archivos);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener archivos' });
+  }
+});
+
 
 export default router;
