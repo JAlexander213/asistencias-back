@@ -218,6 +218,17 @@ router.get('/asistencias', async (req, res) => {
   }
 });
 
+router.delete('/asistencias/delete', async (req, res) => {
+  try {
+    const result = await db.query('DELETE FROM asistencias');
+    // En pg, result.rowCount es el número de filas afectadas
+    res.json({ success: true, message: `Registros eliminados: ${result.rowCount}` });
+  } catch (err) {
+    console.error('Error en DELETE /asistencias/delete:', err);
+    res.status(500).json({ error: 'Error al eliminar registros' });
+  }
+});
+
 router.delete('/asistencias/delete/:archivo', async (req, res) => {
   const archivo = req.params.archivo;
   try {
@@ -228,6 +239,7 @@ router.delete('/asistencias/delete/:archivo', async (req, res) => {
     res.status(500).json({ error: 'Error al eliminar registros por archivo' });
   }
 });
+
 
 
 function convertirFechaBD(fechaBD) {
