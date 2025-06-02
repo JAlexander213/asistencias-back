@@ -109,6 +109,20 @@ router.post("/login", async (req, res) => {
   }
 });
 
+function authMiddleware(req, res, next) {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Token requerido' });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    res.status(401).json({ error: 'Token inválido' });
+  }
+}
+
+
 function cleanKeys(obj) {
   return Object.fromEntries(
     Object.entries(obj).map(([k, v]) => [k.trim(), v])
@@ -125,7 +139,7 @@ function convertirFecha(fechaOriginal) {
   return fechaMoment.format('YYYY-MM-DD HH:mm:ss');
 }
 
-router.post('/uploadAsistencias', async (req, res) => {
+router.post('/uploadAsistencias', authMiddleware, async (req, res) => {
   const { registros, nombreArchivo } = req.body;
   const encabezadoIdx = registros.findIndex(r =>
     Object.values(r).some(v => typeof v === "string" && v.trim().toUpperCase() === "CVE DE EMPLEADO")
@@ -204,16 +218,17 @@ router.get('/asistencias', async (req, res) => {
   }
 });
 
-router.delete('/asistencias/delete', async (req, res) => {
+router.delete('/asistencias/delete/:archivo', async (req, res) => {
+  const archivo = req.params.archivo;
   try {
-    const result = await db.query('DELETE FROM asistencias');
-    // En pg, result.rowCount es el número de filas afectadas
-    res.json({ success: true, message: `Registros eliminados: ${result.rowCount}` });
+    const result = await db.query('DELETE FROM asistencias WHERE archivo = $1', [archivo]);
+    res.json({ success: true, message: `Registros eliminados del archivo ${archivo}: ${result.rowCount}` });
   } catch (err) {
-    console.error('Error en DELETE /asistencias/delete:', err);
-    res.status(500).json({ error: 'Error al eliminar registros' });
+    console.error(err);
+    res.status(500).json({ error: 'Error al eliminar registros por archivo' });
   }
 });
+
 
 function convertirFechaBD(fechaBD) {
   if (!fechaBD) return null;
