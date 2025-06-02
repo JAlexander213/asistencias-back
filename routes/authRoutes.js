@@ -126,22 +126,19 @@ function convertirFecha(fechaOriginal) {
 }
 
 router.post('/uploadAsistencias', async (req, res) => {
-    const { registros, nombreArchivo } = req.body; 
-  const encabezadoIdx = req.body.registros.findIndex(r =>
-    Object.values(r).some(v =>
-      typeof v === "string" &&
-      v.trim().toUpperCase() === "CVE DE EMPLEADO"
-    )
+  const { registros, nombreArchivo } = req.body;
+  const encabezadoIdx = registros.findIndex(r =>
+    Object.values(r).some(v => typeof v === "string" && v.trim().toUpperCase() === "CVE DE EMPLEADO")
   );
 
   if (encabezadoIdx === -1) {
     return res.status(400).json({ error: 'No se encontró el encabezado correcto en el archivo.' });
   }
 
-  const encabezadoRow = req.body.registros[encabezadoIdx];
+  const encabezadoRow = registros[encabezadoIdx];
   const columnas = Object.values(encabezadoRow).map(c => c && c.trim());
 
-  const datos = req.body.registros.slice(encabezadoIdx + 1)
+  const datos = registros.slice(encabezadoIdx + 1)
     .map(row => {
       const obj = {};
       Object.keys(row).forEach((key, idx) => {
@@ -158,18 +155,15 @@ router.post('/uploadAsistencias', async (req, res) => {
     return res.status(400).json({ error: 'Datos inválidos' });
   }
 
-  // Construir query para inserción masiva
-  // Ejemplo: INSERT INTO asistencias (cve_empleado, nombre, fecha_hora, observaciones) VALUES
-  // ($1, $2, $3, $4), ($5, $6, $7, $8), ...
-   const values = [];
+  const values = [];
   const placeholders = datos.map((r, i) => {
-    const idx = i * 5; // Ahora son 5 campos por registro
+    const idx = i * 5;
     values.push(
       r["CVE DE EMPLEADO"],
       r["Nombre"],
       convertirFecha(r["Fecha / Hora"]),
       r["OBSERVACIONES"] || null,
-      nombreArchivo // Añade el nombre del archivo
+      nombreArchivo
     );
     return `($${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5})`;
   }).join(',');
@@ -227,25 +221,6 @@ function convertirFechaBD(fechaBD) {
   return fechaMoment.format('YYYY-MM-DD HH:mm:ss');
 }
 
-router.get('/asistencias/por-archivo/:nombreArchivo', async (req, res) => {
-  try {
-    const { nombreArchivo } = req.params;
-    const result = await db.query(
-      'SELECT * FROM asistencias WHERE archivo = $1',
-      [nombreArchivo]
-    );
-    
-    const datosFormateados = result.rows.map(row => ({
-      ...row,
-      fecha_hora_formateada: convertirFechaBD(row.fecha_hora),
-    }));
-    
-    res.json(datosFormateados);
-  } catch (err) {
-    console.error('Error en /asistencias/por-archivo:', err);
-    res.status(500).json({ error: 'Error al obtener registros' });
-  }
-});
 
 router.get('/archivos', async (req, res) => {
   try {
@@ -255,6 +230,21 @@ router.get('/archivos', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener archivos' });
+  }
+});
+
+router.get('/asistencias/:archivo', async (req, res) => {
+  const archivo = req.params.archivo;
+  try {
+    const { rows } = await db.query('SELECT * FROM asistencias WHERE archivo = $1', [archivo]);
+    const datosFormateados = rows.map(row => ({
+      ...row,
+      fecha_hora_formateada: convertirFechaBD(row.fecha_hora),
+    }));
+    res.json(datosFormateados);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener asistencias por archivo' });
   }
 });
 
