@@ -109,20 +109,6 @@ router.post("/login", async (req, res) => {
   }
 });
 
-function authMiddleware(req, res, next) {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Token requerido' });
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (err) {
-    res.status(401).json({ error: 'Token inválido' });
-  }
-}
-
-
 function cleanKeys(obj) {
   return Object.fromEntries(
     Object.entries(obj).map(([k, v]) => [k.trim(), v])
@@ -139,7 +125,7 @@ function convertirFecha(fechaOriginal) {
   return fechaMoment.format('YYYY-MM-DD HH:mm:ss');
 }
 
-router.post('/uploadAsistencias', authMiddleware, async (req, res) => {
+router.post('/uploadAsistencias', async (req, res) => {
   const { registros, nombreArchivo } = req.body;
   const encabezadoIdx = registros.findIndex(r =>
     Object.values(r).some(v => typeof v === "string" && v.trim().toUpperCase() === "CVE DE EMPLEADO")
