@@ -1,14 +1,16 @@
+import express from 'express';
 import pkg from 'pg';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
+const app = express(); // <-- ESTO FALTABA
+
 const { Pool } = pkg;
 
 app.listen(process.env.PORT || 8000, () => {
-  console.log(`Servidor backend escuchando en ${process.env.PORT || 8000}`);
+  console.log(`Servidor backend escuchando en http://localhost:${process.env.PORT || 8000}`);
 });
-
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URI,
