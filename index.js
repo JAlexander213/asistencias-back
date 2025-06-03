@@ -1,13 +1,14 @@
+import dns from 'dns';
+dns.setDefaultResultOrder('ipv4first');
+
 import express from 'express';
 import pkg from 'pg';
 import dotenv from 'dotenv';
-import dns from 'dns';
-
-dns.setDefaultResultOrder('ipv4first'); // <-- ESTA LÍNEA ES LA CLAVE
 
 dotenv.config();
 
 const app = express();
+
 const { Pool } = pkg;
 
 app.listen(process.env.PORT || 8000, () => {
@@ -17,7 +18,7 @@ app.listen(process.env.PORT || 8000, () => {
 const pool = new Pool({
   connectionString: process.env.DATABASE_URI,
   ssl: {
-    rejectUnauthorized: false
+    rejectUnauthorized: false 
   }
 });
 
