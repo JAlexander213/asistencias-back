@@ -5,10 +5,15 @@ dotenv.config();
 
 const { Pool } = pkg;
 
+app.listen(process.env.PORT || 8000, () => {
+  console.log(`Servidor backend escuchando en ${process.env.PORT || 8000}`);
+});
+
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URI,
   ssl: {
-    rejectUnauthorized: false // necesario para Supabase
+    rejectUnauthorized: false 
   }
 });
 
