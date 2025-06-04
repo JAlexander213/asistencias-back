@@ -1,6 +1,8 @@
 import dns from 'dns';
 dns.setDefaultResultOrder('ipv4first');
-
+import './lib/db.js';
+import './routes/authRoutes.js';
+import cors from 'cors';
 import express from 'express';
 import pkg from 'pg';
 import dotenv from 'dotenv';
@@ -17,13 +19,10 @@ app.listen(PORT, () => {
   console.log(`Servidor backend escuchando en http://localhost:${PORT}`);
 });
 
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));  
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URI,
-  ssl: {
-    rejectUnauthorized: false 
-  }
-});
 
 pool.connect((err) => {
   if (err) {
