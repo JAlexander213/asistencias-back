@@ -1,5 +1,7 @@
 import dns from 'dns';
 import cors from 'cors';
+import authRoutes from './routes/authRoutes.js';
+import authProfile from './routes/authProfile.js';
 dns.setDefaultResultOrder('ipv4first');
 
 import express from 'express';
@@ -24,6 +26,10 @@ const pool = new Pool({
     rejectUnauthorized: false 
   }
 });
+
+
+app.use("/api/auth", authRoutes);
+app.use("/api/auth", authProfile);
 
 pool.connect((err) => {
   if (err) {
