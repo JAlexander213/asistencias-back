@@ -230,7 +230,7 @@ router.delete('/asistencias/delete/:archivo', async (req, res) => {
 
 function convertirFechaBD(fechaBD) {
   if (!fechaBD) return null;
-  const fechaMoment = moment(fechaBD);
+  const fechaMoment = moment.tz(fechaBD, 'America/Mexico_City');
   return fechaMoment.format('YYYY-MM-DD HH:mm:ss');
 }
 
