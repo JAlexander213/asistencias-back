@@ -11,9 +11,12 @@ const app = express();
 
 const { Pool } = pkg;
 
-app.listen(process.env.PORT || 8000, () => {
-  console.log(`Servidor backend escuchando en http://localhost:${process.env.PORT || 8000}`);
+const PORT = process.env.PORT || 8000;
+
+app.listen(PORT, () => {
+  console.log(`Servidor backend escuchando en http://localhost:${PORT}`);
 });
+
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URI,
