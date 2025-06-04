@@ -28,8 +28,8 @@ const pool = new Pool({
 });
 
 
-app.use("/api/auth", authRoutes);
-app.use("/api/auth", authProfile);
+app.use("/auth", authRoutes);
+app.use("/auth", authProfile);
 
 pool.connect((err) => {
   if (err) {
