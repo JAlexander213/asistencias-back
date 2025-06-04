@@ -11,7 +11,6 @@ dotenv.config();
 
 const app = express();
 
-const { Pool } = pkg;
 
 const PORT = process.env.PORT || 8000;
 
@@ -32,4 +31,4 @@ pool.connect((err) => {
   console.log('Conexión exitosa a la base de datos PostgreSQL');
 });
 
-export default pool;
+export default app;
